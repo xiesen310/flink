@@ -98,27 +98,41 @@ public abstract class ClusterClient<T> {
 
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 
-	/** The optimizer used in the optimization of batch programs. */
+	/**
+	 * The optimizer used in the optimization of batch programs.
+	 */
 	final Optimizer compiler;
 
-	/** The actor system used to communicate with the JobManager. */
+	/**
+	 * The actor system used to communicate with the JobManager.
+	 */
 	protected final ActorSystemLoader actorSystemLoader;
 
-	/** Configuration of the client. */
+	/**
+	 * Configuration of the client.
+	 */
 	protected final Configuration flinkConfig;
 
-	/** Timeout for futures. */
+	/**
+	 * Timeout for futures.
+	 */
 	protected final FiniteDuration timeout;
 
-	/** Lookup timeout for the job manager retrieval service. */
+	/**
+	 * Lookup timeout for the job manager retrieval service.
+	 */
 	private final FiniteDuration lookupTimeout;
 
-	/** Service factory for high available. */
+	/**
+	 * Service factory for high available.
+	 */
 	protected final HighAvailabilityServices highAvailabilityServices;
 
 	private final boolean sharedHaServices;
 
-	/** Flag indicating whether to sysout print execution updates. */
+	/**
+	 * Flag indicating whether to sysout print execution updates.
+	 */
 	private boolean printStatusDuringExecution = true;
 
 	/**
@@ -128,7 +142,9 @@ public abstract class ClusterClient<T> {
 	 */
 	protected JobExecutionResult lastJobExecutionResult;
 
-	/** Switch for blocking/detached job submission of the client. */
+	/**
+	 * Switch for blocking/detached job submission of the client.
+	 */
 	private boolean detachedJobSubmission = false;
 
 	/**
@@ -146,7 +162,6 @@ public abstract class ClusterClient<T> {
 	 * if that is not possible.
 	 *
 	 * @param flinkConfig The config used to obtain the job-manager's address, and used to configure the optimizer.
-	 *
 	 * @throws Exception we cannot create the high availability services
 	 */
 	public ClusterClient(Configuration flinkConfig) throws Exception {
@@ -164,14 +179,14 @@ public abstract class ClusterClient<T> {
 	 * configuration. This method will try to resolve the JobManager hostname and throw an exception
 	 * if that is not possible.
 	 *
-	 * @param flinkConfig The config used to obtain the job-manager's address, and used to configure the optimizer.
+	 * @param flinkConfig              The config used to obtain the job-manager's address, and used to configure the optimizer.
 	 * @param highAvailabilityServices HighAvailabilityServices to use for leader retrieval
-	 * @param sharedHaServices true if the HighAvailabilityServices are shared and must not be shut down
+	 * @param sharedHaServices         true if the HighAvailabilityServices are shared and must not be shut down
 	 */
 	public ClusterClient(
-			Configuration flinkConfig,
-			HighAvailabilityServices highAvailabilityServices,
-			boolean sharedHaServices) {
+		Configuration flinkConfig,
+		HighAvailabilityServices highAvailabilityServices,
+		boolean sharedHaServices) {
 		this.flinkConfig = Preconditions.checkNotNull(flinkConfig);
 		this.compiler = new Optimizer(new DataStatistics(), new DefaultCostEstimator(), flinkConfig);
 
@@ -189,10 +204,10 @@ public abstract class ClusterClient<T> {
 	}
 
 	public ClusterClient(
-			Configuration flinkConfig,
-			HighAvailabilityServices highAvailabilityServices,
-			boolean sharedHaServices,
-			ActorSystemLoader actorSystemLoader) {
+		Configuration flinkConfig,
+		HighAvailabilityServices highAvailabilityServices,
+		boolean sharedHaServices,
+		ActorSystemLoader actorSystemLoader) {
 		this.flinkConfig = Preconditions.checkNotNull(flinkConfig);
 		this.compiler = new Optimizer(new DataStatistics(), new DefaultCostEstimator(), flinkConfig);
 
@@ -225,10 +240,10 @@ public abstract class ClusterClient<T> {
 		private ActorSystem actorSystem;
 
 		private LazyActorSystemLoader(
-				HighAvailabilityServices highAvailabilityServices,
-				Time timeout,
-				Configuration configuration,
-				Logger log) {
+			HighAvailabilityServices highAvailabilityServices,
+			Time timeout,
+			Configuration configuration,
+			Logger log) {
 			this.highAvailabilityServices = Preconditions.checkNotNull(highAvailabilityServices);
 			this.timeout = Preconditions.checkNotNull(timeout);
 			this.configuration = Preconditions.checkNotNull(configuration);
@@ -237,6 +252,7 @@ public abstract class ClusterClient<T> {
 
 		/**
 		 * Indicates whether the ActorSystem has already been instantiated.
+		 *
 		 * @return boolean True if it exists, False otherwise
 		 */
 		public boolean isLoaded() {
@@ -254,6 +270,7 @@ public abstract class ClusterClient<T> {
 
 		/**
 		 * Creates a new ActorSystem or returns an existing one.
+		 *
 		 * @return ActorSystem
 		 * @throws Exception if the ActorSystem could not be created
 		 */
@@ -341,13 +358,13 @@ public abstract class ClusterClient<T> {
 	// ------------------------------------------------------------------------
 
 	public static String getOptimizedPlanAsJson(Optimizer compiler, PackagedProgram prog, int parallelism)
-			throws CompilerException, ProgramInvocationException {
+		throws CompilerException, ProgramInvocationException {
 		PlanJSONDumpGenerator jsonGen = new PlanJSONDumpGenerator();
 		return jsonGen.getOptimizerPlanAsJSON((OptimizedPlan) getOptimizedPlan(compiler, prog, parallelism));
 	}
 
 	public static FlinkPlan getOptimizedPlan(Optimizer compiler, PackagedProgram prog, int parallelism)
-			throws CompilerException, ProgramInvocationException {
+		throws CompilerException, ProgramInvocationException {
 		Thread.currentThread().setContextClassLoader(prog.getUserCodeClassLoader());
 		if (prog.isUsingProgramEntryPoint()) {
 			return getOptimizedPlan(compiler, prog.getPlanWithJars(), parallelism);
@@ -383,17 +400,20 @@ public abstract class ClusterClient<T> {
 	/**
 	 * General purpose method to run a user jar from the CliFrontend in either blocking or detached mode, depending
 	 * on whether {@code setDetached(true)} or {@code setDetached(false)}.
-	 * @param prog the packaged program
+	 *
+	 * @param prog        the packaged program
 	 * @param parallelism the parallelism to execute the contained Flink job
 	 * @return The result of the execution
 	 * @throws ProgramMissingJobException
 	 * @throws ProgramInvocationException
 	 */
 	public JobSubmissionResult run(PackagedProgram prog, int parallelism)
-			throws ProgramInvocationException, ProgramMissingJobException {
+		throws ProgramInvocationException, ProgramMissingJobException {
+		// 设置当前的classloader为用户代码的classloader
 		Thread.currentThread().setContextClassLoader(prog.getUserCodeClassLoader());
-		if (prog.isUsingProgramEntryPoint()) {
 
+		// 如果是命令行提交任务，则获取所有用户代码的依赖库
+		if (prog.isUsingProgramEntryPoint()) {
 			final JobWithJars jobWithJars;
 			if (hasUserJarsInClassPath(prog.getAllLibraries())) {
 				jobWithJars = prog.getPlanWithoutJars();
@@ -403,6 +423,7 @@ public abstract class ClusterClient<T> {
 
 			return run(jobWithJars, parallelism, prog.getSavepointSettings());
 		}
+		// 交互式方式提交任务
 		else if (prog.isUsingInteractiveMode()) {
 			log.info("Starting program in interactive mode (detached: {})", isDetached());
 
@@ -413,13 +434,18 @@ public abstract class ClusterClient<T> {
 				libraries = prog.getAllLibraries();
 			}
 
+			/**
+			 * 此处为关键，由于用户代码通过 client 提交，所以在此创建了一个 ContextEnvironmentFactory 对象，
+			 * 用户代码中的 getExecutionEnvironment 会返回该 Environment
+			 */
 			ContextEnvironmentFactory factory = new ContextEnvironmentFactory(this, libraries,
-					prog.getClasspaths(), prog.getUserCodeClassLoader(), parallelism, isDetached(),
-					prog.getSavepointSettings());
+				prog.getClasspaths(), prog.getUserCodeClassLoader(), parallelism, isDetached(),
+				prog.getSavepointSettings());
 			ContextEnvironment.setAsContext(factory);
 
 			try {
 				// invoke main method
+				// 调用用户程序主函数
 				prog.invokeInteractiveModeForExecution();
 				if (lastJobExecutionResult == null && factory.getLastEnvCreated() == null) {
 					throw new ProgramMissingJobException("The program didn't contain a Flink job.");
@@ -427,17 +453,14 @@ public abstract class ClusterClient<T> {
 				if (isDetached()) {
 					// in detached mode, we execute the whole user code to extract the Flink job, afterwards we run it here
 					return ((DetachedEnvironment) factory.getLastEnvCreated()).finalizeExecute();
-				}
-				else {
+				} else {
 					// in blocking mode, we execute all Flink jobs contained in the user code and then return here
 					return this.lastJobExecutionResult;
 				}
-			}
-			finally {
+			} finally {
 				ContextEnvironment.unsetContext();
 			}
-		}
-		else {
+		} else {
 			throw new ProgramInvocationException("PackagedProgram does not have a valid invocation mode.");
 		}
 	}
@@ -453,15 +476,14 @@ public abstract class ClusterClient<T> {
 	 * @param jobWithJars The program to be executed.
 	 * @param parallelism The default parallelism to use when running the program. The default parallelism is used
 	 *                    when the program does not set a parallelism by itself.
-	 *
-	 * @throws CompilerException Thrown, if the compiler encounters an illegal situation.
+	 * @throws CompilerException          Thrown, if the compiler encounters an illegal situation.
 	 * @throws ProgramInvocationException Thrown, if the program could not be instantiated from its jar file,
 	 *                                    or if the submission failed. That might be either due to an I/O problem,
 	 *                                    i.e. the job-manager is unreachable, or due to the fact that the
 	 *                                    parallel execution failed.
 	 */
 	public JobSubmissionResult run(JobWithJars jobWithJars, int parallelism, SavepointRestoreSettings savepointSettings)
-			throws CompilerException, ProgramInvocationException {
+		throws CompilerException, ProgramInvocationException {
 		ClassLoader classLoader = jobWithJars.getUserCodeClassLoader();
 		if (classLoader == null) {
 			throw new IllegalArgumentException("The given JobWithJars does not provide a usercode class loader.");
@@ -472,13 +494,13 @@ public abstract class ClusterClient<T> {
 	}
 
 	public JobSubmissionResult run(
-			FlinkPlan compiledPlan, List<URL> libraries, List<URL> classpaths, ClassLoader classLoader) throws ProgramInvocationException {
+		FlinkPlan compiledPlan, List<URL> libraries, List<URL> classpaths, ClassLoader classLoader) throws ProgramInvocationException {
 		return run(compiledPlan, libraries, classpaths, classLoader, SavepointRestoreSettings.none());
 	}
 
 	public JobSubmissionResult run(FlinkPlan compiledPlan,
-			List<URL> libraries, List<URL> classpaths, ClassLoader classLoader, SavepointRestoreSettings savepointSettings)
-			throws ProgramInvocationException {
+								   List<URL> libraries, List<URL> classpaths, ClassLoader classLoader, SavepointRestoreSettings savepointSettings)
+		throws ProgramInvocationException {
 		JobGraph job = getJobGraph(flinkConfig, compiledPlan, libraries, classpaths, savepointSettings);
 		return submitJob(job, classLoader);
 	}
@@ -513,6 +535,7 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * Cancels a job identified by the job id.
+	 *
 	 * @param jobId the job id
 	 * @throws Exception In case an error occurred.
 	 */
@@ -536,7 +559,8 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * Cancels a job identified by the job id and triggers a savepoint.
-	 * @param jobId the job id
+	 *
+	 * @param jobId              the job id
 	 * @param savepointDirectory directory the savepoint should be written to
 	 * @return path where the savepoint is located
 	 * @throws Exception In case an error occurred.
@@ -566,11 +590,9 @@ public abstract class ClusterClient<T> {
 	 * a while after sending the stop command, because after sources stopped to emit data all operators
 	 * need to finish processing.
 	 *
-	 * @param jobId
-	 *            the job ID of the streaming program to stop
-	 * @throws Exception
-	 *             If the job ID is invalid (ie, is unknown or refers to a batch job) or if sending the stop signal
-	 *             failed. That might be due to an I/O problem, ie, the job-manager is unreachable.
+	 * @param jobId the job ID of the streaming program to stop
+	 * @throws Exception If the job ID is invalid (ie, is unknown or refers to a batch job) or if sending the stop signal
+	 *                   failed. That might be due to an I/O problem, ie, the job-manager is unreachable.
 	 */
 	public void stop(final JobID jobId) throws Exception {
 		final ActorGateway jobManager = getJobManagerGateway();
@@ -593,7 +615,7 @@ public abstract class ClusterClient<T> {
 	 * Triggers a savepoint for the job identified by the job id. The savepoint will be written to the given savepoint
 	 * directory, or {@link org.apache.flink.configuration.CheckpointingOptions#SAVEPOINT_DIRECTORY} if it is null.
 	 *
-	 * @param jobId job id
+	 * @param jobId              job id
 	 * @param savepointDirectory directory the savepoint should be written to
 	 * @return path future where the savepoint is located
 	 * @throws FlinkException if no connection to the cluster could be established
@@ -683,6 +705,7 @@ public abstract class ClusterClient<T> {
 	 * Requests and returns the accumulators for the given job identifier. Accumulators can be
 	 * requested while a is running or after it has finished. The default class loader is used
 	 * to deserialize the incoming accumulator results.
+	 *
 	 * @param jobID The job identifier of a job.
 	 * @return A Map containing the accumulator's name and its value.
 	 */
@@ -693,7 +716,8 @@ public abstract class ClusterClient<T> {
 	/**
 	 * Requests and returns the accumulators for the given job identifier. Accumulators can be
 	 * requested while a is running or after it has finished.
-	 * @param jobID The job identifier of a job.
+	 *
+	 * @param jobID  The job identifier of a job.
 	 * @param loader The class loader for deserializing the accumulator results.
 	 * @return A Map containing the accumulator's name and its value.
 	 */
@@ -711,7 +735,7 @@ public abstract class ClusterClient<T> {
 
 		if (result instanceof AccumulatorResultsFound) {
 			Map<String, SerializedValue<OptionalFailure<Object>>> serializedAccumulators =
-					((AccumulatorResultsFound) result).result();
+				((AccumulatorResultsFound) result).result();
 
 			return AccumulatorHelper.deserializeAccumulators(serializedAccumulators, loader);
 
@@ -767,11 +791,11 @@ public abstract class ClusterClient<T> {
 	 *
 	 * @param prog The program to be compiled.
 	 * @return The compiled and optimized plan, as returned by the compiler.
-	 * @throws CompilerException Thrown, if the compiler encounters an illegal situation.
+	 * @throws CompilerException          Thrown, if the compiler encounters an illegal situation.
 	 * @throws ProgramInvocationException Thrown, if the program could not be instantiated from its jar file.
 	 */
 	private static OptimizedPlan getOptimizedPlan(Optimizer compiler, JobWithJars prog, int parallelism)
-			throws CompilerException, ProgramInvocationException {
+		throws CompilerException, ProgramInvocationException {
 		return getOptimizedPlan(compiler, prog.getPlan(), parallelism);
 	}
 
@@ -829,6 +853,7 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * Logs and prints to sysout if printing to stdout is enabled.
+	 *
 	 * @param message The message to log/print
 	 */
 	protected void logAndSysout(String message) {
@@ -875,6 +900,7 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * Set the mode of this client (detached or blocking job execution).
+	 *
 	 * @param isDetached If true, the client will submit programs detached via the {@code run} method
 	 */
 	public void setDetached(boolean isDetached) {
@@ -883,6 +909,7 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * A flag to indicate whether this clients submits jobs detached.
+	 *
 	 * @return True if the Client submits detached, false otherwise
 	 */
 	public boolean isDetached() {
@@ -891,6 +918,7 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * Return the Flink configuration object.
+	 *
 	 * @return The Flink configuration object
 	 */
 	public Configuration getFlinkConfiguration() {
@@ -899,6 +927,7 @@ public abstract class ClusterClient<T> {
 
 	/**
 	 * The client may define an upper limit on the number of slots to use.
+	 *
 	 * @return <tt>-1</tt> ({@link #MAX_SLOTS_UNKNOWN}) if unknown
 	 */
 	public abstract int getMaxSlots();
@@ -912,6 +941,7 @@ public abstract class ClusterClient<T> {
 	/**
 	 * Calls the subclasses' submitJob method. It may decide to simply call one of the run methods or it may perform
 	 * some custom job submission logic.
+	 *
 	 * @param jobGraph The JobGraph to be submitted
 	 * @return JobSubmissionResult
 	 */
@@ -921,7 +951,7 @@ public abstract class ClusterClient<T> {
 	/**
 	 * Rescales the specified job such that it will have the new parallelism.
 	 *
-	 * @param jobId specifying the job to modify
+	 * @param jobId          specifying the job to modify
 	 * @param newParallelism specifying the new parallelism of the rescaled job
 	 * @return Future which is completed once the rescaling has been completed
 	 */

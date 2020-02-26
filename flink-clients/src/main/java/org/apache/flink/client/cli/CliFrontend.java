@@ -124,8 +124,8 @@ public class CliFrontend {
 	private final int defaultParallelism;
 
 	public CliFrontend(
-			Configuration configuration,
-			List<CustomCommandLine<?>> customCommandLines) throws Exception {
+		Configuration configuration,
+		List<CustomCommandLine<?>> customCommandLines) throws Exception {
 		this.configuration = Preconditions.checkNotNull(configuration);
 		this.customCommandLines = Preconditions.checkNotNull(customCommandLines);
 
@@ -202,14 +202,15 @@ public class CliFrontend {
 		try {
 			LOG.info("Building program from JAR file");
 			program = buildProgram(runOptions);
-		}
-		catch (FileNotFoundException e) {
+		} catch (FileNotFoundException e) {
 			throw new CliArgsException("Could not build the program from JAR file.", e);
 		}
 
+		// 获取活动的commandLine
 		final CustomCommandLine<?> customCommandLine = getActiveCustomCommandLine(commandLine);
 
 		try {
+			// 核心
 			runProgram(customCommandLine, commandLine, runOptions, program);
 		} finally {
 			program.deleteExtractedLibraries();
@@ -217,24 +218,36 @@ public class CliFrontend {
 	}
 
 	private <T> void runProgram(
-			CustomCommandLine<T> customCommandLine,
-			CommandLine commandLine,
-			RunOptions runOptions,
-			PackagedProgram program) throws ProgramInvocationException, FlinkException {
+		CustomCommandLine<T> customCommandLine,
+		CommandLine commandLine,
+		RunOptions runOptions,
+		PackagedProgram program) throws ProgramInvocationException, FlinkException {
 		final ClusterDescriptor<T> clusterDescriptor = customCommandLine.createClusterDescriptor(commandLine);
 
 		try {
+			/**
+			 * 对于FlinkYarnSessionCli，如果提交任务的时候指定了yarn application id，会返回yarn application id。
+			 * 如果命令行没有覆盖yarn的属性，会从`.yarn-properties-username`文件读取application id。
+			 *
+			 * 对于DefaultCLI，会返回 StandaloneClusterId
+			 */
 			final T clusterId = customCommandLine.getClusterId(commandLine);
 
 			final ClusterClient<T> client;
 
 			// directly deploy the job if the cluster is started in job mode and detached
+			// 如果是 detached mode 提交任务，并且 clusterId 为null，那么会进入此分支
 			if (clusterId == null && runOptions.getDetachedMode()) {
+				// 获取并行度
 				int parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
 
+				// 构造 JobGraph
 				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
 
+				// 获取集群运行时信息
 				final ClusterSpecification clusterSpecification = customCommandLine.getClusterSpecification(commandLine);
+
+				// 部署任务到集群
 				client = clusterDescriptor.deployJobCluster(
 					clusterSpecification,
 					jobGraph,
@@ -259,6 +272,8 @@ public class CliFrontend {
 					client = clusterDescriptor.deploySessionCluster(clusterSpecification);
 					// if not running in detached mode, add a shutdown hook to shut down cluster if client exits
 					// there's a race-condition here if cli is killed before shutdown hook is installed
+					// 程序运行在 attached mode，并且配置了sae 属性，即 cli 退出的时候集群会关闭
+					// 此时需要在程序退出前增加钩子，执行client的shutDownCluster方法
 					if (!runOptions.getDetachedMode() && runOptions.isShutdownOnAttachedExit()) {
 						shutdownHook = ShutdownHookUtil.addShutdownHook(client::shutDownCluster, client.getClass().getSimpleName(), LOG);
 					} else {
@@ -284,6 +299,7 @@ public class CliFrontend {
 						userParallelism = defaultParallelism;
 					}
 
+					// 运行用户提交的程序
 					executeProgram(program, client, userParallelism);
 				} finally {
 					if (clusterId == null && !client.isDetached()) {
@@ -365,8 +381,7 @@ public class CliFrontend {
 				System.out.println("----------------------- Execution Plan -----------------------");
 				System.out.println(jsonPlan);
 				System.out.println("--------------------------------------------------------------");
-			}
-			else {
+			} else {
 				System.out.println("JSON plan could not be generated.");
 			}
 
@@ -374,13 +389,11 @@ public class CliFrontend {
 			if (description != null) {
 				System.out.println();
 				System.out.println(description);
-			}
-			else {
+			} else {
 				System.out.println();
 				System.out.println("No description provided.");
 			}
-		}
-		finally {
+		} finally {
 			program.deleteExtractedLibraries();
 		}
 	}
@@ -432,10 +445,10 @@ public class CliFrontend {
 	}
 
 	private <T> void listJobs(
-			ClusterClient<T> clusterClient,
-			boolean showRunning,
-			boolean showScheduled,
-			boolean showAll) throws FlinkException {
+		ClusterClient<T> clusterClient,
+		boolean showRunning,
+		boolean showScheduled,
+		boolean showAll) throws FlinkException {
 		Collection<JobStatusMessage> jobDetails;
 		try {
 			CompletableFuture<Collection<JobStatusMessage>> jobDetailsFuture = clusterClient.listJobs();
@@ -466,8 +479,7 @@ public class CliFrontend {
 		if (showRunning || showAll) {
 			if (runningJobs.size() == 0) {
 				System.out.println("No running jobs.");
-			}
-			else {
+			} else {
 				System.out.println("------------------ Running/Restarting Jobs -------------------");
 				printJobStatusMessages(runningJobs);
 				System.out.println("--------------------------------------------------------------");
@@ -476,8 +488,7 @@ public class CliFrontend {
 		if (showScheduled || showAll) {
 			if (scheduledJobs.size() == 0) {
 				System.out.println("No scheduled jobs.");
-			}
-			else {
+			} else {
 				System.out.println("----------------------- Scheduled Jobs -----------------------");
 				printJobStatusMessages(scheduledJobs);
 				System.out.println("--------------------------------------------------------------");
@@ -717,8 +728,7 @@ public class CliFrontend {
 
 		try {
 			savepointPath = savepointPathFuture.get();
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			Throwable cause = ExceptionUtils.stripExecutionException(e);
 			throw new FlinkException("Triggering a savepoint for the job " + jobId + " failed.", cause);
 		}
@@ -810,6 +820,7 @@ public class CliFrontend {
 	protected void executeProgram(PackagedProgram program, ClusterClient<?> client, int parallelism) throws ProgramMissingJobException, ProgramInvocationException {
 		logAndSysout("Starting execution of program");
 
+		// 运行程序
 		final JobSubmissionResult result = client.run(program, parallelism);
 
 		if (null == result) {
@@ -851,8 +862,7 @@ public class CliFrontend {
 		// Check if JAR file exists
 		if (!jarFile.exists()) {
 			throw new FileNotFoundException("JAR file does not exist: " + jarFile);
-		}
-		else if (!jarFile.isFile()) {
+		} else if (!jarFile.isFile()) {
 			throw new FileNotFoundException("JAR file is not a file: " + jarFile);
 		}
 
@@ -926,7 +936,7 @@ public class CliFrontend {
 		if (t.getCause() instanceof InvalidProgramException) {
 			System.err.println(t.getCause().getMessage());
 			StackTraceElement[] trace = t.getCause().getStackTrace();
-			for (StackTraceElement ele: trace) {
+			for (StackTraceElement ele : trace) {
 				System.err.println("\t" + ele);
 				if (ele.getMethodName().equals("main")) {
 					break;
@@ -962,9 +972,9 @@ public class CliFrontend {
 	 * {@link ClusterAction} against it.
 	 *
 	 * @param activeCommandLine to create the {@link ClusterDescriptor} from
-	 * @param commandLine containing the parsed command line options
-	 * @param clusterAction the cluster action to run against the retrieved {@link ClusterClient}.
-	 * @param <T> type of the cluster id
+	 * @param commandLine       containing the parsed command line options
+	 * @param clusterAction     the cluster action to run against the retrieved {@link ClusterClient}.
+	 * @param <T>               type of the cluster id
 	 * @throws FlinkException if something goes wrong
 	 */
 	private <T> void runClusterAction(CustomCommandLine<T> activeCommandLine, CommandLine commandLine, ClusterAction<T> clusterAction) throws FlinkException {
@@ -1029,6 +1039,7 @@ public class CliFrontend {
 	public int parseParameters(String[] args) {
 
 		// check for action
+		// 检查命令行参数
 		if (args.length < 1) {
 			CliFrontendParser.printHelp(customCommandLines);
 			System.out.println("Please specify an action.");
@@ -1041,6 +1052,7 @@ public class CliFrontend {
 		// remove action from parameters
 		final String[] params = Arrays.copyOfRange(args, 1, args.length);
 
+		// 对于 run list info cancel stop savepoint，分别调用不同的分支
 		try {
 			// do action
 			switch (action) {
@@ -1101,30 +1113,37 @@ public class CliFrontend {
 	 * Submits the job based on the arguments.
 	 */
 	public static void main(final String[] args) {
+		// 日志打印环境配置信息
 		EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
 		// 1. find the configuration directory
+		// 读取 Flink 的配置文件目录
 		final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
 		// 2. load the global configuration
+		// 读取Flink配置文件到configuration对象
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configurationDirectory);
 
 		// 3. load the custom command lines
+		// 加载自定义命令行
 		final List<CustomCommandLine<?>> customCommandLines = loadCustomCommandLines(
 			configuration,
 			configurationDirectory);
 
 		try {
+			// 实例化CliFrontend对象
 			final CliFrontend cli = new CliFrontend(
 				configuration,
 				customCommandLines);
 
+			// 加载认证配置
 			SecurityUtils.install(new SecurityConfiguration(cli.configuration));
+
+			// 在认证环境下调用启动参数
 			int retCode = SecurityUtils.getInstalledContext()
-					.runSecured(() -> cli.parseParameters(args));
+				.runSecured(() -> cli.parseParameters(args));
 			System.exit(retCode);
-		}
-		catch (Throwable t) {
+		} catch (Throwable t) {
 			final Throwable strippedThrowable = ExceptionUtils.stripException(t, UndeclaredThrowableException.class);
 			LOG.error("Fatal error while running command line interface.", strippedThrowable);
 			strippedThrowable.printStackTrace();
@@ -1137,26 +1156,30 @@ public class CliFrontend {
 	// --------------------------------------------------------------------------------------------
 
 	public static String getConfigurationDirectoryFromEnv() {
+		// 从FLINK_CONF_DIR环境变量获取 Flink 配置文件路径
 		String location = System.getenv(ConfigConstants.ENV_FLINK_CONF_DIR);
 
+		// 如果配置了该环境变量
 		if (location != null) {
 			if (new File(location).exists()) {
 				return location;
-			}
-			else {
+			} else {
 				throw new RuntimeException("The configuration directory '" + location + "', specified in the '" +
 					ConfigConstants.ENV_FLINK_CONF_DIR + "' environment variable, does not exist.");
 			}
 		}
+		// 如果没有配置环境变量，从上层目录的conf寻找
 		else if (new File(CONFIG_DIRECTORY_FALLBACK_1).exists()) {
 			location = CONFIG_DIRECTORY_FALLBACK_1;
 		}
+		// 如果fallback1没找到，从当前目录的conf寻找
 		else if (new File(CONFIG_DIRECTORY_FALLBACK_2).exists()) {
 			location = CONFIG_DIRECTORY_FALLBACK_2;
 		}
+		// 如果都没有找到，系统异常退出
 		else {
 			throw new RuntimeException("The configuration directory was not specified. " +
-					"Please specify the directory containing the configuration file through the '" +
+				"Please specify the directory containing the configuration file through the '" +
 				ConfigConstants.ENV_FLINK_CONF_DIR + "' environment variable.");
 		}
 		return location;
@@ -1166,7 +1189,7 @@ public class CliFrontend {
 	 * Writes the given job manager address to the associated configuration object.
 	 *
 	 * @param address Address to write to the configuration
-	 * @param config The configuration to write to
+	 * @param config  The configuration to write to
 	 */
 	static void setJobManagerAddressInConfig(Configuration config, InetSocketAddress address) {
 		config.setString(JobManagerOptions.ADDRESS, address.getHostString());
@@ -1188,12 +1211,13 @@ public class CliFrontend {
 				loadCustomCommandLine(flinkYarnSessionCLI,
 					configuration,
 					configurationDirectory,
-					"y",
-					"yarn"));
+					"y", // short prefix yarn参数的短前缀
+					"yarn")); // long prefix 长前缀
 		} catch (NoClassDefFoundError | Exception e) {
 			LOG.warn("Could not load CLI class {}.", flinkYarnSessionCLI, e);
 		}
 
+		// 加载DefaultCLI
 		customCommandLines.add(new DefaultCLI(configuration));
 
 		return customCommandLines;
@@ -1205,6 +1229,7 @@ public class CliFrontend {
 
 	/**
 	 * Gets the custom command-line for the arguments.
+	 *
 	 * @param commandLine The input to the command-line.
 	 * @return custom command-line which is active (may only be one at a time)
 	 */
@@ -1219,8 +1244,9 @@ public class CliFrontend {
 
 	/**
 	 * Loads a class from the classpath that implements the CustomCommandLine interface.
+	 *
 	 * @param className The fully-qualified class name to load.
-	 * @param params The constructor parameters
+	 * @param params    The constructor parameters
 	 */
 	private static CustomCommandLine<?> loadCustomCommandLine(String className, Object... params) throws IllegalAccessException, InvocationTargetException, InstantiationException, ClassNotFoundException, NoSuchMethodException {
 

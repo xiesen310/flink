@@ -421,8 +421,11 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 	@Override
 	public boolean isActive(CommandLine commandLine) {
+		// 获取命令行的-m参数，或者--jobmanager参数的值
 		String jobManagerOption = commandLine.getOptionValue(addressOption.getOpt(), null);
+		// 检测该值是否等于"yarn-cluster"
 		boolean yarnJobManager = ID.equals(jobManagerOption);
+		// 检测命令行是否指定了application id
 		boolean yarnAppId = commandLine.hasOption(applicationId.getOpt());
 		return yarnJobManager || yarnAppId || (isYarnPropertiesFileMode(commandLine) && yarnApplicationIdFromYarnProperties != null);
 	}
