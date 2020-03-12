@@ -30,30 +30,50 @@
 # automatically configure the host name based on the hostname of the node where the
 # JobManager runs.
 
+# jobManager 的 IP 地址
 jobmanager.rpc.address: localhost
 
-# The RPC port where the JobManager is reachable.
-
+# JobManager 的端口
 jobmanager.rpc.port: 6123
 
-
-# The heap size for the JobManager JVM
-
+# JobManager JVM heap 内存大小(任务提交阶段可再设置,优先级高于配置文件)
 jobmanager.heap.size: 1024m
 
-
-# The heap size for the TaskManager JVM
-
+# TaskManager JVM heap 内存大小(任务提交阶段可再设置,优先级高于配置文件)
 taskmanager.heap.size: 1024m
 
-
-# The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
-
+# 每个 TaskManager 提供的任务 slots 数量大小(任务提交阶段可再设置,优先级高于配置文件)
 taskmanager.numberOfTaskSlots: 1
 
-# The parallelism used for programs that did not specify and other parallelism.
-
+# Flink 任务默认并行度(一般情况下如果是kafka 按照kafka 分区即可, p = slot * tm)
 parallelism.default: 1
+
+#==============================================================================
+# HistoryServer
+#==============================================================================
+
+# The HistoryServer is started and stopped via bin/historyserver.sh (start|stop)
+
+# Directory to upload completed jobs to. Add this directory to the list of
+# monitored directories of the HistoryServer as well (see below).
+# 将已经完成的作业上传到的目录(用于帮助发现任务运行阶段日志)
+jobmanager.archive.fs.dir: hdfs:///flink/flink-jobs/
+
+# The address under which the web-based HistoryServer listens.
+#historyserver.web.address: 0.0.0.0
+
+# The port under which the web-based HistoryServer listens.
+# 基于 Web 的 HistoryServer 的端口号
+historyserver.web.port: 8082
+
+# Comma separated list of directories to monitor for completed jobs.
+# 以逗号分隔的目录列表，将作业归档到目录中
+historyserver.archive.fs.dir: hdfs:///flink/flink-jobs/
+
+# Interval in milliseconds for refreshing the monitored directories.
+# 刷新存档的作业目录的时间间隔(以 ms 为单位)
+historyserver.archive.fs.refresh-interval: 10000
+
 
 # The default file system scheme and authority.
 # 
@@ -69,7 +89,7 @@ parallelism.default: 1
 #==============================================================================
 
 # The high-availability mode. Possible options are 'NONE' or 'zookeeper'.
-#
+# 高可用
 # high-availability: zookeeper
 
 # The path where metadata for master recovery is persisted. While ZooKeeper stores
@@ -87,7 +107,6 @@ parallelism.default: 1
 #
 # high-availability.zookeeper.quorum: localhost:2181
 
-
 # ACL options are based on https://zookeeper.apache.org/doc/r3.1.2/zookeeperProgrammers.html#sc_BuiltinACLSchemes
 # It can be either "creator" (ZOO_CREATE_ALL_ACL) or "open" (ZOO_OPEN_ACL_UNSAFE)
 # The default value is "open" and it can be changed to "creator" if ZK security is enabled
@@ -103,22 +122,26 @@ parallelism.default: 1
 #
 # Supported backends are 'jobmanager', 'filesystem', 'rocksdb', or the
 # <class-name-of-factory>.
-#
-# state.backend: filesystem
+# 用于存档和检查点状态的存储类型: filesystem、hdfs、rocksdb
+state.backend: rocksdb
 
 # Directory for checkpoints filesystem, when using any of the default bundled
 # state backends.
-#
-# state.checkpoints.dir: hdfs://namenode-host:port/flink-checkpoints
+# 用于保存检查点的目录 (用户任务代码可设置覆盖，这里省略了 namespace,如果是多集群任务需要从 A 发到 B
+# ，namespace可不用,相对路径即可)
+state.checkpoints.dir: hdfs:///flink/checkpoints
 
 # Default target directory for savepoints, optional.
-#
-# state.savepoints.dir: hdfs://namenode-host:port/flink-checkpoints
+# savepoint 的目录.一般需要上次ck 成功才能 savepoint,同上相对路径
+state.savepoints.dir: hdfs:///flink/savepoints
+
+# 保存最近检查点的格式(可根据业务调整),默认是 1
+state.checkpoints.num-retained: 20
 
 # Flag to enable/disable incremental checkpoints for backends that
 # support incremental checkpoints (like the RocksDB state backend). 
-#
-# state.backend.incremental: false
+# 开启增量 ck 这里全局生效 (用户代码也可设置)
+state.backend.incremental: true
 
 #==============================================================================
 # Rest & web frontend
@@ -126,11 +149,11 @@ parallelism.default: 1
 
 # The port to which the REST client connects to. If rest.bind-port has
 # not been specified, then the server will bind to this port as well.
-#
+# web 的运行监视器端口
 #rest.port: 8081
 
 # The address to which the REST client will connect to
-#
+# web 的运行监视器 IP 地址
 #rest.address: 0.0.0.0
 
 # Port range for the REST and web server to bind to.
@@ -144,6 +167,7 @@ parallelism.default: 1
 # Flag to specify whether job submission is enabled from the web-based
 # runtime monitor. Uncomment to disable.
 
+# web 提交开关
 #web.submit.enable: false
 
 #==============================================================================
@@ -230,24 +254,8 @@ parallelism.default: 1
 # zookeeper.sasl.login-context-name: Client
 
 #==============================================================================
-# HistoryServer
+# hadoop Configuration
 #==============================================================================
+#fs.hdfs.hadoopconf: /etc/ecm/hadoop-conf
 
-# The HistoryServer is started and stopped via bin/historyserver.sh (start|stop)
-
-# Directory to upload completed jobs to. Add this directory to the list of
-# monitored directories of the HistoryServer as well (see below).
-#jobmanager.archive.fs.dir: hdfs:///completed-jobs/
-
-# The address under which the web-based HistoryServer listens.
-#historyserver.web.address: 0.0.0.0
-
-# The port under which the web-based HistoryServer listens.
-#historyserver.web.port: 8082
-
-# Comma separated list of directories to monitor for completed jobs.
-#historyserver.archive.fs.dir: hdfs:///completed-jobs/
-
-# Interval in milliseconds for refreshing the monitored directories.
-#historyserver.archive.fs.refresh-interval: 10000
-
+#yarn.application-attempts: 10
